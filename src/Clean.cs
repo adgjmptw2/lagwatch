@@ -93,7 +93,7 @@ namespace LagWatch
             }
             if (cache && m.Game == null && Elevated) { r.Cache = true; Command(3); Command(4); } // 고쳐진 것 저장 → 캐시 비움
             else if (Elevated) Command(5);                                                       // 가장 안 쓰는 캐시만
-            int still = 0; for (int i = 0; i < 8 && still < 2; i++) { System.Threading.Thread.Sleep(500); long v = Avail(); if (v > r.After + (64L << 20)) { r.After = v; still = 0; } else { r.After = Math.Max(r.After, v); still++; } } // 내려놓은 것이 디스크에 적힐 때까지. 1초 동안 안 늘면 끝
+            int still = 0; for (int i = 0; i < 5 && still < 2; i++) { System.Threading.Thread.Sleep(350); long v = Avail(); if (v > r.After + (64L << 20)) { r.After = v; still = 0; } else { r.After = Math.Max(r.After, v); still++; } } // 내려놓은 것이 디스크에 적힐 때까지. 1초 동안 안 늘면 끝
             return r;
         }
 

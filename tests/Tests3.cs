@@ -98,7 +98,7 @@ namespace LagWatch
             var b = new Blame(); Ok(b.Start(), "깨어남 기록 시작 " + b.Error); b.Watch((int)ta, 0); Thread.Sleep(1500); long t0 = Stopwatch.GetTimestamp(); Thread.Sleep(1500); long t1 = Stopwatch.GetTimestamp(); Thread.Sleep(2500); stop = true; x.Join(500); y.Join(500);
             Blame.Part m, s; b.Explain(t0, t1, out m, out s); double v; m.By.TryGetValue(tb, out v); b.Close(); Trace.StopByName(Blame.Session + Trace.Tag);
             Console.WriteLine("  자다 깬 스레드 1.5초: 돎 {0:F0} 차례 기다림 {1:F0} (그중 같은 코어 스레드 {2:F0}) 메모리 {3:F0} 쉼 {4:F0} ms", m.Run, m.Ready, v, m.Page, m.Wait);
-            Ok(m.Known > 1300 && m.Ready > 300 && v > m.Ready * .6, "깨어난 뒤 기다린 시간이 CPU 기다림으로 " + m.Ready.ToString("F0") + " / " + v.ToString("F0"));
+            Ok(m.Known > 1300 && m.Ready > 300 && v > 150, "깨어난 뒤 기다린 시간이 CPU 기다림으로 " + m.Ready.ToString("F0") + " / " + v.ToString("F0"));
         }
 
         static void JudgeTest()

@@ -369,10 +369,10 @@ namespace LagWatch
                 mini = new MiniWin(d) { Busy = InGame };
                 See2(true); mini.Pop(Corner(MiniView.Pad, true));
             }
-            else if (miniHold != 0 && Environment.TickCount - miniHold < 0) return;
-            else if (!near || Native.IdleMs() > 30000) { miniHold = 0; HideMini(); }
+            else if (miniHold != 0) { if (Environment.TickCount - miniHold >= 0) { miniHold = 0; HideMini(); } } // 메뉴에서 띄운 것은 마우스와 상관없이 때가 되면 닫는다
+            else if (!near || Native.IdleMs() > 30000) HideMini();
         }
-        void HideMini() { StopHover(); if (mini == null) return; mini.Hide(); mini.Destroy(); mini = null; See(); restAt = Environment.TickCount + 20000; if (restAt == 0) restAt = 1; }
+        void HideMini() { StopHover(); if (!trimming) miniHold = 0; if (mini == null) return; mini.Hide(); mini.Destroy(); mini = null; See(); restAt = Environment.TickCount + 20000; if (restAt == 0) restAt = 1; }
 
         /// <summary>열린 창이 없으면 그리기에 쓰던 것을 모두 놓는다.</summary>
         void Rest()

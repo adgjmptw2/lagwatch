@@ -81,6 +81,16 @@ internal static class Desk3
             PostMessageW(tray, 0x8001, (IntPtr)1, (IntPtr)0x205); Thread.Sleep(900); IntPtr mm = Menu(p.Id); if (mm != IntPtr.Zero) Key(mm, 0x1B); Thread.Sleep(600);
             p.Refresh(); Ok(Menu(p.Id) == IntPtr.Zero && !p.HasExited, "Esc 로 메뉴만 닫힘");
             PostMessageW(tray, 0x8001, (IntPtr)1, (IntPtr)0x202); Thread.Sleep(1200); IntPtr panel = Top(p.Id, h => IsWindowVisible(h) && Text(h) == "" && Cls(h) == "LagWatchWnd"); Ok(panel != IntPtr.Zero, "왼쪽 클릭 작은 창");
+            // 램 청소: 간단히 보기가 떠서 거기서 보여 주고 저절로 닫힌다
+            PostMessageW(panel, 0x100, (IntPtr)0x1B, IntPtr.Zero); Thread.Sleep(700);
+            PostMessageW(tray, 0x8001, (IntPtr)1, (IntPtr)0x205); Thread.Sleep(900); IntPtr mt = Menu(p.Id), ht = mt == IntPtr.Zero ? IntPtr.Zero : Send(mt, 0x1E1, IntPtr.Zero, IntPtr.Zero); for (int i = 0; i < 2 && mt != IntPtr.Zero; i++) Key(mt, 0x28);
+            var s1 = new StringBuilder(64); GetMenuStringW(ht, 1, s1, 64, 0x400); bool on1 = (GetMenuState(ht, 1, 0x400) & 0x80) != 0; Ok(on1 && s1.ToString() == "램 청소", "메뉴의 램 청소 [" + s1 + "]");
+            if (on1 && s1.ToString() == "램 청소")
+            {
+                Key(mt, 0x0D); Func<IntPtr> mini = () => Top(p.Id, h => IsWindowVisible(h) && Text(h) == "" && Cls(h) == "LagWatchWnd"); int seen = 0, gone = -1; p.Refresh(); double c0 = p.TotalProcessorTime.TotalMilliseconds; var sw = Stopwatch.StartNew();
+                for (int t = 0; t < 60; t++) { Thread.Sleep(220); IntPtr w1 = mini(); if (w1 != IntPtr.Zero) { seen++; if (t % 3 == 0 && t < 33) Shot(w1, dir + "\\d3_fx" + t.ToString("00") + ".png"); } else if (seen > 0) { gone = (int)sw.ElapsedMilliseconds; break; } }
+                p.Refresh(); Ok(seen > 5, "간단히 보기가 뜸 " + seen); Ok(gone > 0, "저절로 닫힘 " + gone + "ms, 그동안 CPU " + (p.TotalProcessorTime.TotalMilliseconds - c0).ToString("0") + "ms");
+            }
             // 언어: 메뉴에서 English 를 고르면 끝났다가 영어로 다시 켜진다
             PostMessageW(panel, 0x100, (IntPtr)0x1B, IntPtr.Zero); Thread.Sleep(700);
             PostMessageW(tray, 0x8001, (IntPtr)1, (IntPtr)0x205); Thread.Sleep(900); IntPtr ml = Menu(p.Id), hl = ml == IntPtr.Zero ? IntPtr.Zero : Send(ml, 0x1E1, IntPtr.Zero, IntPtr.Zero); if (ml != IntPtr.Zero) for (int i = 0; i < 7; i++) Key(ml, 0x28);
