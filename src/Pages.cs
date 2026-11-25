@@ -320,7 +320,7 @@ namespace LagWatch
             if (ram.Known) { seg.Add(new Seg(Tx("저장 대기", "Modified"), ram.Modified / 1073741824.0, T.W[3], "win", null)); seg.Add(new Seg(Tx("캐시", "Cache"), ram.Cache / 1073741824.0, T.Fg.Fade(T.Dark ? .3f : .26f), "*cache", null)); }
             // 막대 하나에 차례로, 아래에 같은 차례로 이름과 양
             float lx = 40, lr = mid - 28, bw = lr - lx, y = top + 10, bh = 40, x = lx;
-            var mask = C.ClipRound(lx, y, bw, bh, 9); C.Fill(lx, y, bw, bh, T.Fg.Fade(T.Dark ? .07f : .09f));
+            RamBar = new R4(lx + C.Ox, y + C.Oy, bw, bh); var mask = C.ClipRound(lx, y, bw, bh, 9); C.Fill(lx, y, bw, bh, T.Fg.Fade(T.Dark ? .07f : .09f));
             foreach (var sg in seg) { float sw = Math.Max(0, A("cr" + sg.Label, (float)(sg.V / Math.Max(.1, S.RamGb) * bw))); if (sw < .5f) continue; C.Fill(x, y, Math.Max(.5f, sw - 2), bh, sg.C); x += sw; }
             C.PopClip(mask);
             y += bh + 16; float rh = Math.Min(54, (h - bot - y - 8) / Math.Max(1, seg.Count));
@@ -336,8 +336,8 @@ namespace LagWatch
             float rx = mid + 28, rr = w - 40; C.Mid(Tx("임시 파일", "Temp files"), F.Sans(20, 800), rx, 173, T.Fg);
             double on = D.Temp.Total(true) / 1073741824.0;
             string big = D.Temp.Scanned ? Txt.Gb(on) : "–"; float tw0 = C.Text(big, F.Din(74), rx, 243, T.Fg); C.Text(D.Temp.Scanned ? Tx("삭제 가능", "can be deleted") : Tx("확인 중", "Checking"), F.Sans(19, 600), rx + tw0 + 10, 243, T.Fg.Fade(.78f));
-            if (D.Temp.Scanned) { float b3 = C.Measure(D.Temp.Busy ? Tx("삭제 중", "Deleting") : Tx("삭제", "Delete"), st) + 48; Pill("tdel", D.Temp.Busy ? Tx("삭제 중", "Deleting") : Tx("삭제", "Delete"), rr - b3, 194, b3, 50, 25, on > .0005 ? T.Btn : T.Fg.Fade(.1f), on > .0005 ? T.Bfg : T.Fg, st, () => { if (D.Temp.Busy || D.Temp.Total(true) == 0) return; Ask(Tx("임시 파일 삭제", "Delete temp files"), Tx("{0}를 삭제합니다. 복구할 수 없습니다.", "Deletes {0}. This can't be undone.", Txt.Gb(D.Temp.Total(true) / 1073741824.0)), () => System.Threading.ThreadPool.QueueUserWorkItem(o => { var r = D.Temp.Delete(); D.LastTemp = r; D.LastTempAt = DateTime.Now; toastNext = Tx("{0} 삭제, {1}개", "Deleted {0}, {1} {2}", Txt.Gb(r.Bytes / 1073741824.0), r.Files, Pl(r.Files, "file", "files")) + (r.Failed > 0 ? Tx(" (못 지움 {0}개)", " ({0} skipped)", r.Failed) : ""); Redraw(); })); }); }
-            var cats = new List<Temp.Cat>(D.Temp.Cats); cats.Sort((p, q) => q.Deletable.CompareTo(p.Deletable)); float ch = Math.Min(64, H / Math.Max(1, cats.Count)); y = top;
+            if (D.Temp.Scanned) { float b3 = C.Measure(D.Temp.Busy ? Tx("삭제 중", "Deleting") : Tx("삭제", "Delete"), st) + 48; Pill("tdel", D.Temp.Busy ? Tx("삭제 중", "Deleting") : Tx("삭제", "Delete"), rr - b3, 194, b3, 50, 25, on > .0005 ? T.Btn : T.Fg.Fade(.1f), on > .0005 ? T.Bfg : T.Fg, st, () => { if (D.Temp.Busy || D.Temp.Total(true) == 0) return; Ask(Tx("임시 파일 삭제", "Delete temp files"), Tx("{0}를 삭제합니다. 복구할 수 없습니다.", "Deletes {0}. This can't be undone.", Txt.Gb(D.Temp.Total(true) / 1073741824.0)), () => { var from = PressR; BusyOn(PressId); System.Threading.ThreadPool.QueueUserWorkItem(o => { var r = D.Temp.Delete(); D.LastTemp = r; D.LastTempAt = DateTime.Now; LastOk = true; Finish(new Outcome { Op = "tempdel", From = from, Gain = r.Bytes / 1073741824.0 }); toastNext = Tx("{0} 삭제, {1}개", "Deleted {0}, {1} {2}", Txt.Gb(r.Bytes / 1073741824.0), r.Files, Pl(r.Files, "file", "files")) + (r.Failed > 0 ? Tx(" (못 지움 {0}개)", " ({0} skipped)", r.Failed) : ""); Redraw(); }); }); }); }
+            var cats = new List<Temp.Cat>(D.Temp.Cats); cats.Sort((p, q) => q.Deletable.CompareTo(p.Deletable)); float ch = Math.Min(64, H / Math.Max(1, cats.Count)); y = top; TempBox = new R4(rx + C.Ox, top + C.Oy, rr - rx, ch * cats.Count);
             for (int i = 0; i < cats.Count; i++)
             {
                 var c = cats[i]; string id = "tc" + c.Key; bool live = c.On && c.Deletable > 0; var ink = T.Fg.Fade(c.On ? 1 : .55f);
@@ -428,10 +428,10 @@ namespace LagWatch
             float pad = Math.Max(18, h * .7f), tot = 0; for (int i = 0; i < opt.Length; i++) tot += C.Measure(opt[i], st) + pad;
             float x0 = right ? x - tot : x, cx = x0, rad = Math.Min(12, h * .34f);
             C.Round(x0, y, tot, h, rad, T.Faint);
+            if (sel >= 0 && sel < opt.Length) { float sx = 0, sw = C.Measure(opt[sel], st) + pad; for (int i = 0; i < sel; i++) sx += C.Measure(opt[i], st) + pad; C.Round(x0 + A(id + "~x", sx), y, A(id + "~w", sw), h, rad, T.Btn); }
             for (int i = 0; i < opt.Length; i++)
             {
                 float ow = C.Measure(opt[i], st) + pad; string zid = id + i; int k = i; bool on = i == sel;
-                if (on) C.Round(cx, y, ow, h, rad, T.Btn);
                 C.Mid(opt[i], st, cx + ow / 2, y + h / 2, on ? T.Bfg : T.Fg.Fade(Over(zid) ? 1 : .7f), 1);
                 if (pick != null) Zone(cx, y, ow, h, zid, () => pick(k));
                 cx += ow;
@@ -442,10 +442,10 @@ namespace LagWatch
         void Choice(string label, string[] opt, int sel, float x, float r, float y, string id, Action<int> pick)
         {
             C.Mid(label, F.Sans(16.5f, 700), x, y + 19, T.Fg.Fade(.75f)); float ox = x + 84, ow = (r - ox) / opt.Length;
-            C.Round(ox, y, r - ox, 38, 12, T.Faint);
+            C.Round(ox, y, r - ox, 38, 12, T.Faint); if (sel >= 0) C.Round(ox + A(id + "~x", ow * sel), y, ow, 38, 12, T.Btn);
             for (int i = 0; i < opt.Length; i++)
             {
-                string zid = id + i; int k = i; bool on = i == sel; if (on) C.Round(ox + ow * i, y, ow, 38, 12, T.Btn);
+                string zid = id + i; int k = i; bool on = i == sel;
                 C.Mid(opt[i], F.Sans(15.5f, 700), ox + ow * i + ow / 2, y + 19, on ? T.Bfg : T.Fg.Fade(Over(zid) ? 1 : .75f), 1); Zone(ox + ow * i, y, ow, 38, zid, () => pick(k));
             }
         }

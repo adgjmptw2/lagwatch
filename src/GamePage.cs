@@ -15,8 +15,8 @@ namespace LagWatch
             float bx = w - 40; var st = F.Sans(18, 800);
             bool any = false, all = true; foreach (var g in D.Boost.Games) if (g.Installed) foreach (var k in g.Knobs) { if (k.Rec < 0 || k.Now < 0) continue; if (k.Now != k.Rec && !Waiting(k)) all = false; else any = true; }
             if (!M.Set.Bg) all = false; else any = true;
-            if (any) { float b2 = C.Measure(Tx("되돌리기", "Revert"), st) + 44; bx -= b2; Pill("gno", Tx("되돌리기", "Revert"), bx, 76, b2, 52, 26, T.Fg.Fade(.1f), T.Fg, st, () => Ask(Tx("되돌리기", "Revert"), Tx("우선순위, 클라이언트, 코어 제한을 원래 값으로 되돌립니다.", "Priority, client and core limits go back to their original values."), () => Work(() => ApplyAll(false)))); bx -= 10; }
-            if (!all) { float b1 = C.Measure(Tx("권장 설정 적용", "Apply recommended"), st) + 48; bx -= b1; Pill("gall", Tx("권장 설정 적용", "Apply recommended"), bx, 76, b1, 52, 26, T.Btn, T.Bfg, st, () => Ask(Tx("권장 설정 적용", "Apply recommended"), RecText(), () => Work(() => ApplyAll(true)))); bx -= 10; }
+            if (any) { float b2 = C.Measure(Tx("되돌리기", "Revert"), st) + 44; bx -= b2; Pill("gno", Tx("되돌리기", "Revert"), bx, 76, b2, 52, 26, T.Fg.Fade(.1f), T.Fg, st, () => Ask(Tx("되돌리기", "Revert"), Tx("우선순위, 클라이언트, 코어 제한을 원래 값으로 되돌립니다.", "Priority, client and core limits go back to their original values."), () => Work(() => ApplyAll(false), true))); bx -= 10; }
+            if (!all) { float b1 = C.Measure(Tx("권장 설정 적용", "Apply recommended"), st) + 48; bx -= b1; Pill("gall", Tx("권장 설정 적용", "Apply recommended"), bx, 76, b1, 52, 26, T.Btn, T.Bfg, st, () => Ask(Tx("권장 설정 적용", "Apply recommended"), RecText(), () => Work(() => ApplyAll(true), true))); bx -= 10; }
             Say(w, Tx("게임", "Games"), GameLine(), w - bx);
             C.Fill(mid, 160, 1, h - bot - 176, Sep);
             for (int i = 0; i < D.Boost.Games.Count && i < 2; i++) Half(D.Boost.Games[i], i == 0 ? 0 : mid, i == 0 ? mid : w - mid, top, h - bot, i == 0 ? 40 : 28, i == 0 ? 28 : 40, i);
@@ -35,7 +35,7 @@ namespace LagWatch
         }
 
         static bool Waiting(Knob k) { var c = k as ClientKnob; return c != null && c.Pending == c.Rec; }
-        void Work(Func<string> f) { System.Threading.ThreadPool.QueueUserWorkItem(o => { string r = null; try { r = f(); } catch (Exception ex) { r = ex.Message; } if (!string.IsNullOrEmpty(r)) toastNext = r; Redraw(); }); }
+        void Work(Func<string> f, bool big = false) { var from = PressR; System.Threading.ThreadPool.QueueUserWorkItem(o => { string r = null; bool ok = true; try { r = f(); } catch (Exception ex) { r = ex.Message; ok = false; } if (!string.IsNullOrEmpty(r)) toastNext = r; LastOk = ok; if (big || !ok) Finish(new Outcome { Op = "apply", Ok = ok, From = from }); Redraw(); }); }
 
         string ApplyAll(bool on) { return D.ApplyGame(on); }
 
@@ -178,8 +178,8 @@ namespace LagWatch
         }
         void Do2(string id)
         {
-            if (id == "trimgame") { M.Set.AutoTrimGame = true; M.Set.Save(); Toast(Tx("게임 시작할 때 청소함", "Will clean at game start")); return; }
-            if (id == "bgon") { M.Set.Bg = true; M.Set.Save(); System.Threading.ThreadPool.QueueUserWorkItem(o => { try { D.Fix.Tick(); } catch (Exception) { } }); Toast(Tx("게임 중 다른 프로그램 코어 {0}개만", "In game, other apps get {0} cores", Fixer.BgCores(S.Phys))); return; }
+            if (id == "trimgame") { M.Set.AutoTrimGame = true; M.Set.Save(); LastOk = true; Toast(Tx("게임 시작할 때 청소함", "Will clean at game start")); return; }
+            if (id == "bgon") { M.Set.Bg = true; M.Set.Save(); System.Threading.ThreadPool.QueueUserWorkItem(o => { try { D.Fix.Tick(); } catch (Exception) { } }); LastOk = true; Toast(Tx("게임 중 다른 프로그램 코어 {0}개만", "In game, other apps get {0} cores", Fixer.BgCores(S.Phys))); return; }
             Run(id);
         }
     }

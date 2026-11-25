@@ -143,7 +143,7 @@ namespace LagWatch
     internal struct Zone { public R4 R; public string Id; public Action Click; public Action<float, float> Move; }
 
     /// <summary>그리기·누르기·움직임의 바탕. 화면마다 하나씩.</summary>
-    internal abstract class Surface : IDisposable
+    internal abstract partial class Surface : IDisposable
     {
         public readonly Canvas C = new Canvas();
         public readonly Doctor D;
@@ -233,7 +233,7 @@ namespace LagWatch
             {
                 if (!zones[i].R.Has(x, y)) continue;
                 if (zones[i].Click == null) return false;
-                zones[i].Click(); return true;
+                Pressed(zones[i], x, y); zones[i].Click(); return true;
             }
             return false;
         }
@@ -277,8 +277,9 @@ namespace LagWatch
 
         protected void Pill(string id, string text, float x, float y, float w, float h, float rad, Col bg, Col fg, Style st, Action click)
         {
-            C.Round(x, y, w, h, rad, Over(id) ? bg.To(fg, .08f) : bg);
-            C.Mid(text, st, x + w / 2, y + h / 2, fg, 1);
+            float q = Squash(id), dx = Math.Min(5, w * q / 2), dy = h * q / 2; C.Round(x + dx, y + dy, w - dx * 2, h - dy * 2, rad, Over(id) ? bg.To(fg, .08f) : bg);
+            Ripple(id, x + dx, y + dy, w - dx * 2, h - dy * 2, rad, fg);
+            if (!Fuel(id, text, x, y, w, h, fg, st)) C.Mid(text, st, x + w / 2, y + h / 2, fg, 1);
             Zone(x, y, w, h, id, click);
         }
 

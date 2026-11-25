@@ -16,7 +16,9 @@ namespace LagWatch
         {
             if (args.Length > 1 && args[0] == "--sleep") { System.Threading.Thread.Sleep(int.Parse(args[1]) * 1000); return 0; }
             if (args.Length > 1 && args[0] == "--spin") { var w = System.Diagnostics.Stopwatch.StartNew(); for (int i = 0; i < 3; i++) new System.Threading.Thread(() => { while (w.Elapsed.TotalSeconds < int.Parse(args[1])) { } }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal }.Start(); System.Threading.Thread.Sleep(int.Parse(args[1]) * 1000); return 0; }
-            Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+            Console.OutputEncoding = new System.Text.UTF8Encoding(false); Trace.Tag = ".test";
+            // 켜져 있는 게임과 렉 감시에 끼어들지 않게
+            foreach (string g in new[] { "EternalReturn.exe" }) if (Sys.Running(g) && Array.IndexOf(args, "--force") < 0) { Console.WriteLine("게임 중에는 시험하지 않음: " + g); return 2; }
             RingTest(); LeakTest(); NameTest(); LogTest(); RuleTest(); HistTest(); AppHistTest(); ForecastTest(); OldBits(); MiscTest(); More();
             Console.WriteLine("통과 {0}, 실패 {1}", pass, fail);
             return fail == 0 ? 0 : 1;

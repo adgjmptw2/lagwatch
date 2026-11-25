@@ -30,15 +30,18 @@ namespace LagWatch
             if (id.StartsWith("page:")) { if (OpenIn != null) OpenIn(id.Substring(5)); return; }
             if ((id.StartsWith("restart:") || id.StartsWith("end:") || id.StartsWith("after:")) && !(sure == id && Environment.TickCount / 1000.0 - sureAt < 4)) { sure = id; sureAt = Environment.TickCount / 1000.0; Redraw(); return; }
             sure = null;
-            System.Threading.ThreadPool.QueueUserWorkItem(o => { string r; try { r = D.Do(id); } catch (Exception ex) { r = ex.Message; } toastNext = r; Redraw(); });
+            Fire(id, PressId, PressR, r => toastNext = r);
         }
+        protected override Col FxInk { get { return T.AFg; } }
+        protected override Col FxChip { get { return T.AFill; } }
+        protected override Col FxChipInk { get { return T.AOn; } }
         string Sure(string id, string label) { return sure == id && Environment.TickCount / 1000.0 - sureAt < 4 ? (En ? "Click again" : id == "tempdel" ? "한 번 더 누르면 삭제" : id == "trimall" ? "한 번 더" : id.StartsWith("end:") ? "한 번 더 누르면 종료" : id.StartsWith("restart:") ? "한 번 더 누르면 재시작" : id.StartsWith("after:") ? "한 번 더 누르면 예약" : "한 번 더 누르면 실행") : label; }
 
         protected override void Paint(float w, float h)
         {
             if (toastNext != null) { if (toastNext.Length > 0) { toast = toastNext; toastAt = Environment.TickCount / 1000.0; } toastNext = null; }
             C.Clear(new Col(0, 0, 0, 0));
-            C.Move(0, 0);
+            C.Move(0, 0); RamBar = TempBox = new R4();
             float H = Math.Min(MaxH, A("H", Wanted())); Height = H;
             float top = h - Pad - H;
             for (int i = 0; i < 12; i++) { float g = 2 + i * 3; C.Round(Pad - g, top - g + 12, Wd + g * 2, H + g * 2 - 4, 24 + g, Col.Hex(0, .028f)); }
@@ -50,7 +53,8 @@ namespace LagWatch
             if (k < .996f) { C.Move(Pad - Wd * .26f * k, top); if (k > .01f) C.PushOpacity(1 - k); Front(H); if (k > .01f) C.PopClip(IntPtr.Zero); }
             if (k > .004f) { C.Move(Pad + Wd * (1 - k), top); C.Fill(0, 0, Wd, H, T.ABg); if (lastSub == 1) GameSub(H); else if (lastSub == 2) CleanSub(H); else Detail(H); }
             C.Move(Pad, top);
-            if (toast != null && Environment.TickCount / 1000.0 - toastAt < 4) { var st = F.Wide(15.5f, 700); float tw = C.Measure(toast, st) + 34; C.Round(Wd / 2 - tw / 2, H - 58, tw, 42, 21, T.AFill); C.Mid(toast, st, Wd / 2, H - 37, T.AOn, 1); } else toast = null;
+            if (toast != null && !ToastBox(toast, Environment.TickCount / 1000.0 - toastAt, 4, Wd / 2, H - 37, 42, F.Wide(15.5f, 700), T.AFill, T.AOn, LastOk)) toast = null;
+            PaintFx(Wd, H);
             C.PopClip(mask);
             C.Move(0, 0);
         }
@@ -99,7 +103,7 @@ namespace LagWatch
             for (int i = 0; i < 3; i++) { int n = i; Pill("qa" + i, an[i], x + i * (aw + 8), ay, aw, 46, 14, i == 0 ? T.AFill : T.ABtn, i == 0 ? T.AOn : T.AFg, F.Wide(16, 800), () => { if (n == 0) Trim("trim"); else GoSub(n == 1 ? 2 : 1); }); }
         }
         bool busyTrim;
-        void Trim(string op) { if (busyTrim) return; busyTrim = true; Redraw(); Job(() => { try { return D.Do(op); } finally { busyTrim = false; } }); }
+        void Trim(string op) { if (busyTrim) return; busyTrim = true; Redraw(); Fire(op, PressId, PressR, r => { busyTrim = false; toastNext = r; }); }
         void Job(Func<string> f) { System.Threading.ThreadPool.QueueUserWorkItem(o => { string t = null; try { t = f(); } catch (Exception ex) { t = ex.Message; } if (!string.IsNullOrEmpty(t)) toastNext = t; Redraw(); }); }
         void GoSub(int n) { Sub = n; Open = null; if (n == 1) D.Boost.Look(0); if (n == 2 && !D.Temp.Busy) Job(() => { D.Temp.Scan(); return null; }); Redraw(); }
 
@@ -155,12 +159,12 @@ namespace LagWatch
             float x = 22, r = Wd - 22, y = Back(Tx("청소", "Clean"), () => { if (OpenIn != null) OpenIn("clean"); });
             Tank(Snap.Ram, x, y, r - x, 60); y += 68; float bw = (r - x - 8) / 2; var st = F.Wide(15.5f, 800);
             Pill("cr1", busyTrim ? Tx("청소 중", "Cleaning") : Tx("램 청소", "Clean RAM"), x, y, S.Game == null && Cleaner.Elevated ? bw : r - x, 44, 14, T.AFill, T.AOn, st, () => Trim("trim")); if (S.Game == null && Cleaner.Elevated) Pill("cr2", Sure("trimall", Tx("캐시 전체 청소", "Clear cache")), x + bw + 8, y, bw, 44, 14, T.ABtn, T.AFg, st, () => { if (Sure("trimall", "") == "") { sure = "trimall"; sureAt = Environment.TickCount / 1000.0; Redraw(); } else { sure = null; Trim("trimall"); } }); y += 54;
-            foreach (var c in D.Temp.Cats) { var cc = c; Switch("ct" + c.Key, c.Label, c.On, x, r, y, () => { cc.On = !cc.On; M.Set.TempOff.Remove(cc.Key); M.Set.TempOn.Remove(cc.Key); (cc.On ? M.Set.TempOn : M.Set.TempOff).Add(cc.Key); M.Set.Save(); }); C.Mid(D.Temp.Scanned ? Txt.Gb(c.Deletable / 1073741824.0) : Tx("확인 중", "Checking"), F.Wide(15, 700), r - 60, y + 22, T.ADim, 2); y += 46; }
+            TempBox = new R4(x + C.Ox, y + C.Oy, r - x, D.Temp.Cats.Count * 46); foreach (var c in D.Temp.Cats) { var cc = c; Switch("ct" + c.Key, c.Label, c.On, x, r, y, () => { cc.On = !cc.On; M.Set.TempOff.Remove(cc.Key); M.Set.TempOn.Remove(cc.Key); (cc.On ? M.Set.TempOn : M.Set.TempOff).Add(cc.Key); M.Set.Save(); }); C.Mid(D.Temp.Scanned ? Txt.Gb(c.Deletable / 1073741824.0) : Tx("확인 중", "Checking"), F.Wide(15, 700), r - 60, y + 22, T.ADim, 2); y += 46; }
             y += 12; long n = D.Temp.Scanned ? D.Temp.Total(true) : 0; string lab = D.Temp.Busy ? Tx("확인 중", "Checking") : n == 0 ? Tx("지울 것 없음", "Nothing to delete") : Sure("tempdel", Tx("임시 파일 {0} 삭제", "Delete {0} of temp files", Txt.Gb(n / 1073741824.0)));
             Pill("cd", lab, x, y, r - x, 50, 15, n > 0 ? T.AHot : T.ABtn, n > 0 ? Col.Hex(0xffffff) : T.ADim, F.Wide(16.5f, 800), () =>
             {
                 if (n == 0 || D.Temp.Busy) return; if (Sure("tempdel", "") == "") { sure = "tempdel"; sureAt = Environment.TickCount / 1000.0; Redraw(); return; }
-                sure = null; Job(() => { var t = D.Temp.Delete(); D.LastTemp = t; D.LastTempAt = DateTime.Now; D.Temp.Scan(); return Tx("{0} 삭제, {1}개", "Deleted {0}, {1} {2}", Txt.Gb(t.Bytes / 1073741824.0), t.Files, Pl(t.Files, "file", "files")) + (t.Failed > 0 ? Tx(" (못 지움 {0}개)", " ({0} skipped)", t.Failed) : ""); });
+                sure = null; var from = PressR; BusyOn(PressId); Job(() => { var t = D.Temp.Delete(); D.LastTemp = t; D.LastTempAt = DateTime.Now; LastOk = true; Finish(new Outcome { Op = "tempdel", From = from, Gain = t.Bytes / 1073741824.0 }); D.Temp.Scan(); return Tx("{0} 삭제, {1}개", "Deleted {0}, {1} {2}", Txt.Gb(t.Bytes / 1073741824.0), t.Files, Pl(t.Files, "file", "files")) + (t.Failed > 0 ? Tx(" (못 지움 {0}개)", " ({0} skipped)", t.Failed) : ""); });
             });
         }
         /// <summary>단추에 무엇을 하는지 프로그램 이름까지</summary>
@@ -192,7 +196,7 @@ namespace LagWatch
         }
         void Tank(int m, float x, float y, float w, float h)
         {
-            double cap = S.Cap(m), used = S.Used(m), pc = used / Math.Max(1, cap) * 100; bool hot = Theme.Lv(pc) == 2;
+            double cap = S.Cap(m), used = S.Used(m), pc = used / Math.Max(1, cap) * 100; bool hot = Theme.Lv(pc) == 2; if (m == Snap.Ram) RamBar = new R4(x + C.Ox, y + C.Oy, w, h);
             var mask = C.ClipRound(x, y, w, h, 15); C.Fill(x, y, w, h, T.AWell); float fw = A("tk" + m, (float)(used / Math.Max(1, cap)) * w); TankText(m, x, y, w, h, fw, T.ADim, T.AFg);
              C.Clip(x, y, fw, h); C.Fill(x, y, fw, h, T.ALv(pc, T.AFill)); var on = hot ? Col.Hex(0xffffff) : T.AOn; TankText(m, x, y, w, h, fw, on.Fade(.75f), on); C.Unclip(); C.PopClip(mask);
         }
@@ -296,10 +300,15 @@ namespace LagWatch
             float tw = (r - x - 8) / 2; for (int k = 0; k < 2; k++)
             {
                 int m = k == 0 ? Snap.Ram : Snap.Vm; float tx = x + k * (tw + 8), ty = 128, th = 44; double cap = S.Cap(m), used = S.Used(m), pc = used / Math.Max(1, cap) * 100; bool hot = Theme.Lv(pc) == 2;
-                var mask = C.ClipRound(tx, ty, tw, th, 12); C.Fill(tx, ty, tw, th, T.AWell); Mem(m, tx, ty, used, T.ADim, T.AFg); float fw = A("t" + m, (float)(used / Math.Max(1, cap)) * tw); C.Clip(tx, ty, fw, th); C.Fill(tx, ty, fw, th, T.ALv(pc, T.AFill)); var on = hot ? Col.Hex(0xffffff) : T.AOn; Mem(m, tx, ty, used, on.Fade(.75f), on); C.Unclip(); C.PopClip(mask);
+                if (m == Snap.Ram) RamBar = new R4(tx + C.Ox, ty + C.Oy, tw, th); var mask = C.ClipRound(tx, ty, tw, th, 12); C.Fill(tx, ty, tw, th, T.AWell); Mem(m, tx, ty, used, T.ADim, T.AFg); float fw = A("t" + m, (float)(used / Math.Max(1, cap)) * tw); C.Clip(tx, ty, fw, th); C.Fill(tx, ty, fw, th, T.ALv(pc, T.AFill)); var on = hot ? Col.Hex(0xffffff) : T.AOn; Mem(m, tx, ty, used, on.Fade(.75f), on); C.Unclip(); C.PopClip(mask);
             }
+            var fm = C.ClipRound(0, 0, Wd, Ht, 20); if (IsBusy("tray")) { double t = BusyFor; Rocket(Wd / 2 + (float)Math.Sin(t * 57) * .9f, Ht - 8, 30, .34f + .1f * (float)Math.Sin(t * 31), t, T.AFg, T.AHot, T.W[1]); Animating = true; }
+            PaintFx(Wd, Ht); C.PopClip(fm);
             C.Move(0, 0);
         }
+        protected override Col FxInk { get { return T.AFg; } }
+        protected override Col FxChip { get { return T.AFill; } }
+        protected override Col FxChipInk { get { return T.AOn; } }
         void Mem(int m, float x, float y, double used, Col dim, Col fg)
         {
             C.Mid(Txt.Title(m), F.Wide(12.5f, 600), x + 11, y + 13, dim); C.Mid((used / Math.Max(1, S.Cap(m)) * 100).ToString("0") + "%", F.Wide(16, 800), x + 11, y + 31, fg);

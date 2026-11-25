@@ -177,8 +177,15 @@ namespace LagWatch
         static uint Pri(Process p) { return GetPriorityClass(p.Handle); }
         static ulong Aff(Process p) { ulong a, s; GetProcessAffinityMask(p.Handle, out a, out s); return a; }
 
+        /// <summary>게임 중이거나, 켜져 있는 렉 감시가 이 시험을 제한했으면 우선순위·코어 시험은 뜻이 없다.</summary>
+        static bool Alone(string what)
+        {
+            var me = Process.GetCurrentProcess(); ulong a, s; GetProcessAffinityMask(me.Handle, out a, out s); bool ok = !Sys.Running("EternalReturn.exe") && !Sys.Running("League of Legends.exe") && GetPriorityClass(me.Handle) == 0x20 && a == s;
+            if (!ok) Console.WriteLine("  건너뜀(게임 중이거나 이 시험이 제한됨): " + what); return ok;
+        }
         static void FixReal()
         {
+            if (!Alone("코어·우선순위")) return;
             string state = Path.Combine(Tmp, "applied.tsv"); ulong full;
             using (var p = Go("lwchild", 60))
             {

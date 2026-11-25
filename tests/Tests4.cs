@@ -7,7 +7,7 @@ namespace LagWatch
 {
     internal static unsafe partial class Tests
     {
-        static void LiteTests() { LevelTest(); DrawTest(); ClipTest(); CurveTest(); TextTest(); GlyphCapTest(); SysTest(); ClockTest(); SetTest(); LoopTest(); }
+        static void LiteTests() { FxTest(); LevelTest(); DrawTest(); ClipTest(); CurveTest(); TextTest(); GlyphCapTest(); SysTest(); ClockTest(); SetTest(); LoopTest(); }
 
         static uint At(Canvas c, int x, int y) { return ((uint*)c.Bits)[y * c.PxW + x]; }
         static int G(Canvas c, int x, int y) { return (int)(At(c, x, y) >> 8 & 255); }
@@ -117,6 +117,28 @@ namespace LagWatch
             for (int i = 0; i < 60; i++) { var x = new Clock(); x.Read(out lim); x.Close(); } Ok(true, "여닫기");
         }
 
+        /// <summary>누른 뒤의 움직임: 끝나면 남지 않고, 게임 중(Still)에는 움직이지 않는다</summary>
+        static void FxTest()
+        {
+            var m = new Monitor(new Settings(null), new EventLog(null), new History(null)); m.Step(); System.Threading.Thread.Sleep(250); m.Step(); var d = new Doctor(m, null);
+            var main = new MainView(d); var panel = new PanelView(d); var mini = new MiniView(d); int n = 0;
+            foreach (var v in new Surface[] { main, panel, mini })
+            {
+                int w = v is MainView ? 1080 : v is PanelView ? (int)(PanelView.Wd + PanelView.Pad * 2) : (int)(MiniView.Wd + MiniView.Pad * 2), h = v is MiniView ? (int)(MiniView.Ht + MiniView.Pad * 2) : 720;
+                v.Still = true; v.Refresh(); v.Draw(w, h, 1);
+                foreach (string op in new[] { "trim", "trimall", "tempdel", "end", "restart", "once", "undo", "apply", "deep", "" })
+                    foreach (bool ok in new[] { true, false })
+                        foreach (double gain in new[] { 0, 3.4 })
+                            for (double t = 0; t < 3.6; t += .17) { v.FxTest(new Outcome { Op = op, Ok = ok, Gain = gain, Was = .84, Now = .71, Key = "chrome" }, "trim", t); v.Draw(w, h, 1); n++; }
+                v.FxTest(new Outcome { Op = "trim", Gain = 3.4, Was = .8, Now = .7 }, "trim", .5); v.Draw(w, h, 1); Ok(v.Animating && v.FxOn, v.GetType().Name + " 움직이는 중");
+                v.FxTime = 9; v.Draw(w, h, 1); Ok(!v.FxOn, "끝나면 남지 않음");
+                v.FxTime = -1; v.Cheer(new Outcome { Op = "trim", Gain = 3.4, Was = .8, Now = .7 }); v.Draw(w, h, 1); Ok(!v.Animating, "게임 중에는 움직이지 않고 숫자만");
+                v.Dispose();
+            }
+            Ok(n == 3 * 10 * 2 * 2 * 22, "모든 움직임을 끝까지 그림 " + n);
+            var o = new Outcome(); Surface.Fill(o, new CleanResult { Before = 8L << 30, After = 11L << 30 }, 32L << 30); Ok(Math.Abs(o.Gain - 3) < .01 && Math.Abs(o.Was - .75) < .001 && Math.Abs(o.Now - .65625) < .001, "비운 양");
+            d.Do("always:nothing-here"); Ok(Doctor.Failed, "안 된 조치"); d.Do("undo:nothing-here"); Ok(!Doctor.Failed, "된 조치");
+        }
         static void LevelTest()
         {
             Ok(Theme.Lv(0) == 0 && Theme.Lv(69.9) == 0 && Theme.Lv(70) == 1 && Theme.Lv(89.9) == 1 && Theme.Lv(90) == 2 && Theme.Lv(100) == 2, "사용률 70% 주황, 90% 빨강");

@@ -219,11 +219,11 @@ namespace LagWatch
                 if (Busy != null && Busy()) k = 1;
                 Alpha = k; Shift = (1 - k) * 18 * Scale_;
                 var p = Pixels;
-                V.Still = (Busy != null && Busy()) || (Glance && t > .6); V.Calm = k >= 1 && Environment.TickCount - touch >= 700;
+                V.Still = (Busy != null && Busy()) || (Glance && t > .6 && !V.FxOn); V.Calm = k >= 1 && Environment.TickCount - touch >= 700 && !V.FxOn;
                 V.Draw(p.W, p.H, Scale_);
                 var pos = new Win.PT(Spot.X - p.W, Spot.Y - p.H + (int)Shift); var src = new Win.PT(0, 0); var b = new Win.BLEND { Alpha = (byte)(255 * Alpha), Fmt = 1 };
                 Win.UpdateLayeredWindow(H, IntPtr.Zero, ref pos, ref p, V.C.Dc, ref src, 0, ref b, 2);
-                bool more = V.Animating || k < 1; int iv = !more ? 0 : k < 1 || Environment.TickCount - touch < 700 ? 16 : 50;
+                bool more = V.Animating || k < 1; int iv = !more ? 0 : k < 1 || V.FxOn || Environment.TickCount - touch < 700 ? 16 : 50;
                 if (iv != running) { running = iv; if (iv == 0) NoTimer(1); else Timer(1, iv); }
             }
             finally { drawing = false; }
@@ -239,6 +239,8 @@ namespace LagWatch
             if (!NoActivate) { Win.SetForegroundWindow(H); Win.SetFocus(H); }
         }
         public void Hide() { if (H != IntPtr.Zero) Win.ShowWindow(H, 0); }
+        public void Work(string id) { V.BusyOn(id); }
+        public void Cheer(Outcome o) { V.Cheer(o); }
 
         protected override bool On(int m, IntPtr w, IntPtr l, ref IntPtr r)
         {
@@ -373,10 +375,10 @@ namespace LagWatch
             drawing = true;
             try
             {
-                V.Still = Busy != null && Busy(); V.Calm = Environment.TickCount - touch >= 700;
+                V.Still = Busy != null && Busy(); V.Calm = Environment.TickCount - touch >= 700 && !V.FxOn;
                 V.Draw(c.W, c.H, scale);
                 Win.InvalidateRect(H, IntPtr.Zero, false); Win.UpdateWindow(H);
-                int iv = !V.Animating ? 0 : Environment.TickCount - touch < 700 ? 16 : 50; if (iv != running) { running = iv; if (iv == 0) NoTimer(1); else Timer(1, iv); }
+                int iv = !V.Animating ? 0 : V.FxOn || Environment.TickCount - touch < 700 ? 16 : 50; if (iv != running) { running = iv; if (iv == 0) NoTimer(1); else Timer(1, iv); }
             }
             finally { drawing = false; }
         }

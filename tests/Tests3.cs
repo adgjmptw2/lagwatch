@@ -81,7 +81,7 @@ namespace LagWatch
             uint tid = 0; bool stop = false; long q = Stopwatch.Frequency; var runs = new List<long[]>(); var th = new Thread(() => { tid = GetCurrentThreadId(); while (!stop) { long a = Stopwatch.GetTimestamp(); var w = Stopwatch.StartNew(); while (w.ElapsedMilliseconds < 200) { } lock (runs) runs.Add(new[] { a, Stopwatch.GetTimestamp() }); Thread.Sleep(200); } }) { IsBackground = true, Priority = ThreadPriority.Highest }; th.Start(); while (tid == 0) Thread.Sleep(5);
             var b = new Blame(); var me = Process.GetCurrentProcess(); Ok(b.Start(), "기록 시작 " + b.Error); b.Watch((int)tid, 0); Thread.Sleep(3500); stop = true; th.Join(1000); Thread.Sleep(2500); int good = 0, tried = 0; Blame.Part m, s;
             lock (runs) for (int i = 2; i < runs.Count - 1 && i < 7; i++) { tried++; b.Explain(runs[i][0], runs[i][1], out m, out s); if (m.Run > 150 && m.Wait < 30) good++; b.Explain(runs[i][1] + q / 100, runs[i][1] + q * 15 / 100, out m, out s); if (m.Wait > 100 && m.Run < 20) good++; }
-            Ok(tried >= 3 && good >= tried * 2 - 2, "실제 스레드 " + good + " / " + tried * 2); Console.WriteLine("  스레드 교체 초당 {0:F0}번", b.Events / 6.0); b.Close(); Ok(!b.Running, "닫음"); Trace.StopByName(Blame.Session);
+            Ok(tried >= 3 && good >= tried * 2 - 2, "실제 스레드 " + good + " / " + tried * 2); Console.WriteLine("  스레드 교체 초당 {0:F0}번", b.Events / 6.0); b.Close(); Ok(!b.Running, "닫음"); Trace.StopByName(Blame.Session + Trace.Tag);
             var own = Blame.Owners(new List<uint> { GetCurrentThreadId() }); int pid; Ok(own.TryGetValue(GetCurrentThreadId(), out pid) && pid == me.Id, "스레드 주인 찾기");
         }
 
@@ -96,7 +96,7 @@ namespace LagWatch
             var y = new Thread(() => { SetThreadAffinityMask(GetCurrentThread(), mask); tb = GetCurrentThreadId(); while (!stop) { var w = Stopwatch.StartNew(); while (w.ElapsedMilliseconds < 40) { } Thread.Sleep(40); } }) { IsBackground = true, Priority = ThreadPriority.Highest };
             x.Start(); y.Start(); Thread.Sleep(200);
             var b = new Blame(); Ok(b.Start(), "깨어남 기록 시작 " + b.Error); b.Watch((int)ta, 0); Thread.Sleep(1500); long t0 = Stopwatch.GetTimestamp(); Thread.Sleep(1500); long t1 = Stopwatch.GetTimestamp(); Thread.Sleep(2500); stop = true; x.Join(500); y.Join(500);
-            Blame.Part m, s; b.Explain(t0, t1, out m, out s); double v; m.By.TryGetValue(tb, out v); b.Close(); Trace.StopByName(Blame.Session);
+            Blame.Part m, s; b.Explain(t0, t1, out m, out s); double v; m.By.TryGetValue(tb, out v); b.Close(); Trace.StopByName(Blame.Session + Trace.Tag);
             Console.WriteLine("  자다 깬 스레드 1.5초: 돎 {0:F0} 차례 기다림 {1:F0} (그중 같은 코어 스레드 {2:F0}) 메모리 {3:F0} 쉼 {4:F0} ms", m.Run, m.Ready, v, m.Page, m.Wait);
             Ok(m.Known > 1300 && m.Ready > 300 && v > m.Ready * .6, "깨어난 뒤 기다린 시간이 CPU 기다림으로 " + m.Ready.ToString("F0") + " / " + v.ToString("F0"));
         }
@@ -143,6 +143,7 @@ namespace LagWatch
 
         static void PrioTest()
         {
+            if (!Alone("게임 우선순위 등록")) return;
             const string exe = "lwprio.exe"; string key = PrioKnob.Ifeo + exe, dir = Path.Combine(Tmp, "prio"); Process p;
             Action clean = () => { try { Registry.LocalMachine.DeleteSubKeyTree(key, false); } catch (Exception) { } };
             if (!Cleaner.Elevated) { Console.WriteLine("  관리자가 아니라 우선순위 시험을 건너뜀"); return; }
@@ -256,6 +257,7 @@ namespace LagWatch
 
         static void BgTest()
         {
+            if (!Alone("다른 프로그램 제한")) return;
             Ok(Fixer.BgCores(8) == 3 && Fixer.BgCores(6) == 2 && Fixer.BgCores(4) == 2 && Fixer.BgCores(16) == 6 && Fixer.BgCores(2) == 1, "남겨 줄 코어 수"); foreach (var n in new[] { "Discord", "obs64", "NVIDIA Overlay", "lghub_agent", "steam" }) Ok(Names.IsLive(n), n + " 은 뺌"); Ok(!Names.IsLive("node") && !Names.IsLive("chrome"), "node, chrome 은 대상");
             foreach (var bad in new[] { "mysqld", "vgc", "LeagueClient", "Discord" }) { var gg = new Grp { Key = bad, Label = bad }; gg.Add(new App { Exe = bad, Key = bad, Protected = Names.IsGuarded(bad) }); Ok(!Fixer.CanBg(gg), bad + " 은 제한 안 함"); }
             using (var busy = Go("lwbusy", 40, "--spin")) using (var idle = Go("lwidle", 40, "--sleep"))

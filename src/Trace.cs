@@ -32,7 +32,15 @@ namespace LagWatch
         public uint Error;
         public bool Running { get { return session != 0; } }
 
-        protected Trace(string name) { this.name = name; cb = Guarded; }
+        /// <summary>시험이나 측정으로 따로 켠 것은 이름을 달리해, 켜져 있는 렉 감시의 기록을 끊지 않는다.</summary>
+        public static string Tag = "";
+        protected Trace(string name) { this.name = name + Tag; cb = Guarded; }
+        static Guid Tagged(Guid id)
+        {
+            if (Tag.Length == 0) return id;
+            uint h = 2166136261; foreach (char c in Tag) h = (h ^ c) * 16777619; var b = id.ToByteArray(); for (int i = 0; i < 4; i++) b[i] ^= (byte)(h >> i * 8);
+            return new Guid(b);
+        }
 
         static IntPtr Props(uint flags, uint mode, uint bufKb, uint min, uint max, Guid id)
         {
@@ -55,7 +63,7 @@ namespace LagWatch
         {
             if (Running) return true;
             StopByName(name); // 지난번에 갑자기 꺼졌으면 남아 있을 수 있다
-            IntPtr p = Props(kernelFlags, 0x100u | (kernelFlags != 0 ? 0x02000000u : 0), bufKb, min, max, id);
+            IntPtr p = Props(kernelFlags, 0x100u | (kernelFlags != 0 ? 0x02000000u : 0), bufKb, min, max, Tagged(id));
             ulong h; Error = StartTraceW(out h, name, p);
             Marshal.FreeHGlobal(p);
             if (Error != 0) return false;

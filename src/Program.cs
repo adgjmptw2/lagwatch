@@ -9,8 +9,8 @@ using static LagWatch.Lang;
 
 [assembly: AssemblyTitle("LagWatch")]
 [assembly: AssemblyProduct("LagWatch")]
-[assembly: AssemblyVersion("1.6.0.0")]
-[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.6.1.0")]
+[assembly: AssemblyFileVersion("1.6.1.0")]
 
 namespace LagWatch
 {
@@ -26,7 +26,7 @@ namespace LagWatch
             args = Split(args);
             string id = Arg(args, "--id"); if (id != null) { Id = "." + id; Dir = Path.Combine(Path.GetTempPath(), "LagWatch-" + id); }
             Lang.Init(Arg(args, "--lang"), Path.Combine(Dir, "settings.txt"));
-            string shot = Arg(args, "--shot");
+            string shot = Arg(args, "--shot"); Trace.Tag = shot != null || Arg(args, "--bench") != null ? ".cli" : Id;
             if (shot != null)
             {
                 try { return Shot(args, shot); }
@@ -115,6 +115,7 @@ namespace LagWatch
             foreach (var g in v.S.Groups) foreach (var a in g.Apps) { if (a.Commit > 20L << 20 || a.Cores > .02) lock (m.Sync) m.EnsureInfo(a); if (a == g.Main) Icons.Now(a.Path); }
             v.Refresh();
             v.Draw(w, h, scale);
+            string fx = Arg(args, "--fx"); if (fx != null) { var q = fx.Split(','); double at = double.Parse(q[1], CultureInfo.InvariantCulture); if (q[0] == "busy") v.FxBusy(q[2], at); else { var o = new Outcome { Op = q[0].TrimStart('!'), Ok = q[0][0] != '!', Gain = q.Length > 3 ? double.Parse(q[3], CultureInfo.InvariantCulture) : 0, Key = q.Length > 4 ? q[4] : "", Was = .84, Now = .71 }; if (o.Key.Length > 0) v.S.ByKey.TryGetValue(o.Key, out o.G); v.FxTest(o, q[2], at); } v.Draw(w, h, scale); }
             string mouse = Arg(args, "--mouse"); if (mouse != null) { var q = mouse.Split(','); v.MouseMove(int.Parse(q[0]), int.Parse(q[1])); v.Draw(w, h, scale); }
             string click = Arg(args, "--click"); if (click != null) { var q = click.Split(','); v.Click(int.Parse(q[0]), int.Parse(q[1])); v.Draw(w, h, scale); }
             v.Draw(w, h, scale);
@@ -298,7 +299,7 @@ namespace LagWatch
                 add(1, Tx("열기", "Open"), false); add(2, Tx("램 청소", "Clean RAM"), false); add(3, Tx("임시 파일", "Temp files"), false); add(0, null, false); add(4, Tx("알림", "Notifications"), m.Set.Notify); add(5, Tx("윈도우 시작 시 실행", "Start with Windows"), Startup.On); add(6, Tx("기록 폴더 열기", "Open data folder"), false); add(8, En ? "한국어" : "English", false); add(0, null, false); add(7, Tx("종료", "Exit"), false);
                 var at = Win.Mouse(); Win.SetForegroundWindow(H); int k = Win.TrackPopupMenuEx(p, 0x100 | 0x2 | 0x20, at.X, at.Y, H, IntPtr.Zero); Win.PostMessageW(H, 0, IntPtr.Zero, IntPtr.Zero);
                 if (k == 1) OpenMain(-1);
-                else if (k == 2) ThreadPool.QueueUserWorkItem(o => { string r = null; try { r = d.Do("trim"); } catch (Exception ex) { Sys.Note(ex); } if (r != null) Loop.Post(() => Balloon(Tx("램 청소", "Clean RAM"), r)); });
+                else if (k == 2) TrimNow();
                 else if (k == 3) OpenMain(MainView.Clean);
                 else if (k == 4) { m.Set.Notify = !m.Set.Notify; m.Set.Save(); }
                 else if (k == 5) Startup.Set(!Startup.On);
@@ -340,6 +341,23 @@ namespace LagWatch
             if (mini != null) return;
             if (!hovering) { hovering = true; hoverFrom = Environment.TickCount; Timer(2, 150); }
         }
+        bool trimming; int miniHold;
+        /// <summary>트레이 메뉴에서 램 청소: 간단히 보기를 띄워 거기서 보여 준다</summary>
+        void TrimNow()
+        {
+            if (trimming) return; trimming = true; bool inPanel = panel != null && panel.Visible;
+            if (!inPanel && mini == null) { hoverAt = Win.Mouse(); mini = new MiniWin(d) { Busy = InGame }; See2(true); mini.Pop(Corner(MiniView.Pad, true)); }
+            if (mini != null) { mini.Work("tray"); miniHold = Environment.TickCount + 30000; hovering = true; Timer(2, 150); }
+            ThreadPool.QueueUserWorkItem(x =>
+            {
+                string r = null; bool ok = false; try { r = d.Do("trim"); ok = !Doctor.Failed; } catch (Exception ex) { Sys.Note(ex); }
+                Loop.Post(() =>
+                {
+                    trimming = false; var o = new Outcome { Op = "trim", Ok = ok }; Surface.Fill(o, d.LastTrim, m.RamTotal);
+                    if (mini != null) { mini.Data(); mini.Cheer(o); miniHold = Environment.TickCount + 3500; } else if (panel != null && panel.Visible) panel.Cheer(o); else if (r != null) Balloon(Tx("램 청소", "Clean RAM"), r);
+                });
+            });
+        }
         void StopHover() { hovering = false; NoTimer(2); }
         void HoverTick()
         {
@@ -351,7 +369,8 @@ namespace LagWatch
                 mini = new MiniWin(d) { Busy = InGame };
                 See2(true); mini.Pop(Corner(MiniView.Pad, true));
             }
-            else if (!near || Native.IdleMs() > 30000) HideMini();
+            else if (miniHold != 0 && Environment.TickCount - miniHold < 0) return;
+            else if (!near || Native.IdleMs() > 30000) { miniHold = 0; HideMini(); }
         }
         void HideMini() { StopHover(); if (mini == null) return; mini.Hide(); mini.Destroy(); mini = null; See(); restAt = Environment.TickCount + 20000; if (restAt == 0) restAt = 1; }
 

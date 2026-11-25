@@ -39,6 +39,7 @@ namespace LagWatch
                 else C.Mid(Txt.Of(S, m), F.Sans(16, 600), 40 + nw + 12, y + 13, T.Fg.Fade(.72f), 0, x0 - 60 - nw);
                 Usage(m, 40, y + 86, true, x0 - 8);
                 if (m == Snap.Cpu && Cores) { CoreTubes(x0, bw, y + 4, 80, y + 112); continue; }
+                if (m == Snap.Ram) RamBar = new R4(x0 + C.Ox, y + 36 + C.Oy, bw, 48);
                 Bar(z, m, x0, y + 36, bw, 48, pct, bad);
             }
         }

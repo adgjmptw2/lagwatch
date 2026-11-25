@@ -407,9 +407,15 @@ namespace LagWatch
 
         // ---- 누른 것 ----
 
+        [ThreadStatic] static bool failed;
+        /// <summary>이 스레드에서 방금 한 조치가 안 됐는지</summary>
+        public static bool Failed { get { return failed; } }
+        static string No(string s) { failed = true; return s; }
+
         /// <summary>돌려주는 글은 화면에 잠깐 보여 준다. null 이면 화면이 따로 처리한다.</summary>
         public string Do(string id)
         {
+            failed = false;
             int i = id.IndexOf(':'); string op = i < 0 ? id : id.Substring(0, i), key = i < 0 ? "" : id.Substring(i + 1);
             Grp g = null; if (key.Length > 0) lock (M.Sync) g = Fix.GroupOf(key);
             switch (op)
@@ -417,12 +423,12 @@ namespace LagWatch
                 case "once":
                 case "always":
                     {
-                        if (!Fixer.CanTune(g)) return Tx("제한할 수 없는 프로그램", "This app can't be limited");
+                        if (!Fixer.CanTune(g)) return No(Tx("제한할 수 없는 프로그램", "This app can't be limited"));
                         var r = Fix.Find(key) ?? new Rule();
                         Fix.Set(new Rule { Key = key, Label = g.Label, Cores = 2, Prio = Math.Max(r.Prio, 1), Once = op == "once", Always = false });
                         bool game; lock (M.Sync) game = M.Game != null;
                         int n = Fix.AppliedCount(key);
-                        if (game && n == 0) { Fix.Remove(key); return Tx("권한이 없어 적용 안 됨", "Not applied (no permission)"); }
+                        if (game && n == 0) { Fix.Remove(key); return No(Tx("권한이 없어 적용 안 됨", "Not applied (no permission)")); }
                         if (game)
                         {
                             var f = Fix.Note(key, g.Label, g.Label + Tx(" 코어 2개, 우선순위 낮음", ": 2 cores, low priority"), op == "once" ? Tx("게임 끝나면 해제", "Removed after the game") : Tx("게임할 때마다 적용", "Applied every game"), true);
@@ -431,11 +437,11 @@ namespace LagWatch
                         break;
                     }
                 case "undo": Fix.Remove(key); lock (M.Sync) Fix.Log.RemoveAll(f => f.Key == key); break;
-                case "after": if (!Fixer.CanRestart(g)) return Tx("재시작할 수 없는 프로그램", "This app can't be restarted"); Fix.Book(key, g.Label, true); break;
+                case "after": if (!Fixer.CanRestart(g)) return No(Tx("재시작할 수 없는 프로그램", "This app can't be restarted")); Fix.Book(key, g.Label, true); break;
                 case "unbook": Fix.Unbook(key); break;
                 case "restart":
                     {
-                        if (!Fixer.CanRestart(g)) return Tx("재시작할 수 없는 프로그램", "This app can't be restarted");
+                        if (!Fixer.CanRestart(g)) return No(Tx("재시작할 수 없는 프로그램", "This app can't be restarted"));
                         double mb = g.Commit / 1048576.0; string label = g.Label, err = null;
                         ThreadPool.QueueUserWorkItem(o =>
                         {
@@ -450,10 +456,10 @@ namespace LagWatch
                     }
                 case "end":
                     {
-                        if (!Fixer.CanEnd(g)) return Tx("종료할 수 없는 프로그램", "This app can't be closed");
+                        if (!Fixer.CanEnd(g)) return No(Tx("종료할 수 없는 프로그램", "This app can't be closed"));
                         double mb = g.Commit / 1048576.0; int n = Fix.End(g);
                         if (n > 0) Fix.Note(key, g.Label, Tx("{0} 종료함", "Closed {0}", g.Label), Tx("가상메모리 {0} 감소", "Commit down {0}", Fmt.Mem(mb)), false);
-                        return n > 0 ? Tx("{0} 종료함", "Closed {0}", g.Label) : Tx("종료 실패", "Couldn't close");
+                        return n > 0 ? Tx("{0} 종료함", "Closed {0}", g.Label) : No(Tx("종료 실패", "Couldn't close"));
                     }
                 case "trim":
                 case "trimall":
@@ -462,7 +468,7 @@ namespace LagWatch
                         if (Changed != null) Changed();
                         return TrimText(res);
                     }
-                case "boot": { string e = Boost.Set(Boost.Boot, M.Set.Boot); return e ?? Tx("boot.config 적용함", "boot.config applied"); }
+                case "boot": { string e = Boost.Set(Boost.Boot, M.Set.Boot); if (e != null) return No(e); return Tx("boot.config 적용함", "boot.config applied"); }
                 case "deep": DeepScan(8); return Tx("검사 중 (8초)", "Scanning (8s)");
                 case "power": try { Sys.Open("powercfg.cpl"); } catch (Exception) { } break;
                 default: return null;

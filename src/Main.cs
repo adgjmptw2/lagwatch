@@ -43,17 +43,17 @@ namespace LagWatch
             }
             Back(id);
         }
-        void Ask(string title, string text, Action ok) { if (Confirm != null) Confirm(title, text, ok); else ok(); }
+        void Ask(string title, string text, Action ok) { var id = PressId; var r = PressR; if (Confirm != null) Confirm(title, text, () => { PressId = id; PressR = r; ok(); }); else ok(); } // 움직임은 처음 누른 단추에서
         void Back(string id)
         {
-            System.Threading.ThreadPool.QueueUserWorkItem(o => { string r = null; try { r = D.Do(id); } catch (Exception ex) { r = ex.Message; } toastNext = r; Redraw(); });
+            Fire(id, PressId, PressR, r => toastNext = r);
         }
         volatile string toastNext;
 
         protected override void Paint(float w, float h)
         {
             if (toastNext != null) { Toast(toastNext); toastNext = null; }
-            var bad = Bad;
+            var bad = Bad; RamBar = TempBox = new R4();
             Sky(w, h, 0);
             switch (Page)
             {
@@ -68,6 +68,7 @@ namespace LagWatch
             PaintSheet(w, h);
             PaintAsk(w, h);
             PaintToast(w, h);
+            PaintFx(w, h);
             Caption(w);
         }
 
@@ -109,10 +110,7 @@ namespace LagWatch
         void PaintToast(float w, float h)
         {
             if (toast == null) return;
-            double age = Environment.TickCount / 1000.0 - toastAt;
-            if (age > 5) { toast = null; return; }
-            var st = F.Sans(17, 700); float tw = C.Measure(toast, st) + 44;
-            C.Round(w / 2 - tw / 2, h - 74, tw, 48, 24, T.Btn); C.Mid(toast, st, w / 2, h - 50, T.Bfg, 1);
+            if (!ToastBox(toast, Environment.TickCount / 1000.0 - toastAt, 5, w / 2, h - 50, 48, F.Sans(17, 700), T.Btn, T.Bfg, LastOk)) toast = null;
         }
 
         /// <summary>맨 위 큰 글. 오른쪽에 단추가 있으면 그 폭만큼 비운다.</summary>
