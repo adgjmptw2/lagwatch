@@ -12,6 +12,22 @@ namespace LagWatch
         {
             foreach (var k in new List<string>(m.Apps.Keys)) { string key, label; Names.Group(m.Apps[k], out key, out label); if (key != "win" && Array.IndexOf(keys, key) < 0) m.Apps.Remove(k); }
         }
+        /// <summary>방송 10분: 업로드 부족 한 번, GPU 꽉 참 한 번, GPU 인코더 한 번</summary>
+        public static void Stream(Doctor d, bool live)
+        {
+            var sd = new StreamDoctor { Enc = new ObsEncoder { Mode = "Simple", Encoder = "nvenc", Kbps = 6000, Preset = "p5" }, Start = DateTime.Now.AddSeconds(-600) };
+            var rnd = new Random(7);
+            for (int i = 0; i < 600; i++)
+            {
+                var s = new Sec { At = sd.Start.AddSeconds(i), Busy = 35 + rnd.Next(10), GpuEnc = 26 + rnd.Next(4), Cpu = 18 + rnd.Next(8), ObsCpu = 1, FreeMB = 9600, RenderMs = 2.1f, Fps = 60, Kbps = 5900 + rnd.Next(500), Top = "Chrome", TopCores = .3f, Obs3D = 3, Game3D = 30, ObsEnc = 27 };
+                if (i >= 120 && i < 146) { s.Net = 20 + rnd.Next(20); s.Kbps = i % 7 == 0 ? 20000 : 0; s.Cong = 1; }
+                if (i >= 300 && i < 306) { s.Render = 6 + rnd.Next(10); s.Busy = 99; s.Game3D = 88; }
+                if (i >= 451 && i < 454) { s.Enc = 4 + rnd.Next(6); s.GpuEnc = 97; }
+                sd.Add(s);
+            }
+            if (live) d.Cast.Live = sd; else { sd.Finish(); d.Cast.LastSession = sd; }
+        }
+
         public static void Causes(Doctor d, string what)
         {
             var l = new List<Cause>(d.Causes);

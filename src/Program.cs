@@ -9,8 +9,8 @@ using static LagWatch.Lang;
 
 [assembly: AssemblyTitle("LagWatch")]
 [assembly: AssemblyProduct("LagWatch")]
-[assembly: AssemblyVersion("1.6.1.0")]
-[assembly: AssemblyFileVersion("1.6.1.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]
 
 namespace LagWatch
 {
@@ -93,7 +93,7 @@ namespace LagWatch
             if (Has(args, "--temp")) d.Temp.Scan();
             d.Boost.Read();
             m.AfterStep = null; Thread.Sleep(200);
-            if (demo != null) Demo.Causes(d, demo);
+            if (demo != null && demo.StartsWith("file:")) d.Cast.LastSession = Broadcast.Load(demo.Substring(5)); else if (demo != null && demo.StartsWith("stream")) Demo.Stream(d, demo == "stream-live"); else if (demo != null) Demo.Causes(d, demo);
             string only = Arg(args, "--only"); if (only != null) lock (m.Sync) Demo.Only(m, only.Split(',')); // 설명 그림에 이 PC에서 켠 것을 다 보이지 않게
             if (Arg(args, "--game") != null) lock (m.Sync) if (m.Game != null) m.Game.Create = DateTime.UtcNow.AddMinutes(-22).ToFileTimeUtc();
             Theme.Cur = Has(args, "--light") ? Theme.Day : Theme.Night;
@@ -135,6 +135,10 @@ namespace LagWatch
             System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.Batch;
             m.AfterStep = t => { d.Tick(t); Tidy.Step(); };
             m.Start();
+            // --obs <폴더>: 방송 기록도 같이 돌려서 그 비용까지 잰다
+            if (Arg(args, "--obsdir") != null) ObsConfig.ObsDir = Arg(args, "--obsdir"); // 시험용 휴대용 OBS
+            string obsDir = Arg(args, "--obs"); var cast = obsDir == null ? null : new Broadcast(m, obsDir, () => d.FramesOk ? d.Fps : double.NaN);
+            if (cast != null) cast.Start();
             Thread.Sleep(6000); long ev0 = d.Blame.Events;
             double c0 = Self.Cpu; int g0 = GC.CollectionCount(0), g2 = GC.CollectionCount(2);
             var sw = Stopwatch.StartNew();
@@ -143,6 +147,7 @@ namespace LagWatch
             if (d.Blame.Running) Console.WriteLine("스레드 교체 초당 {0:F0}번", (d.Blame.Events - ev0) / t1);
             Console.WriteLine("CPU {0:F3}s / {1:F0}s = 코어 하나의 {2:F2}% (전체의 {3:F3}%)", used, t1, used / t1 * 100, used / t1 * 100 / Environment.ProcessorCount);
             Console.WriteLine("커밋 {0:F1}MB, 램 {1:F1}MB, GC0 {2}번, GC2 {3}번, 마지막 표본 {4:F1}ms, 게임 {5}, {6:F0}fps 최대 {7:F1}ms 끊김 {8}", Self.Commit, Self.Ram, GC.CollectionCount(0) - g0, GC.CollectionCount(2) - g2, m.LastStepMs, m.Game != null, d.Fps, d.MaxMs, d.Hitch1m);
+            if (cast != null) { Console.WriteLine("방송 기록: 상태 {0}, 줄 {1}, 파일 {2}", cast.State, cast.Rows, cast.FilePath ?? "-"); cast.Dispose(); }
             d.Dispose(); m.Stop();
             return 0;
         }
@@ -232,10 +237,11 @@ namespace LagWatch
             d.Fix.Changed = () => Loop.Post(Data);
             SetIcon(); Notify(0);
             m.Rules.Notify = (title, text) => Loop.Post(() => { pending.Add(new[] { title, text }); Deliver(); });
+            d.Cast.Notify = (title, text) => Loop.Post(() => { pending.Add(new[] { title, text }); streamNote = true; Deliver(); }); // 게임 중이면 게임이 끝난 뒤에 보인다(Deliver)
             open = new EventWaitHandle(false, EventResetMode.AutoReset, "LagWatch.Open" + Program.Id);
             quit = new EventWaitHandle(false, EventResetMode.AutoReset, "LagWatch.Quit" + Program.Id);
             Timer(1, 5000); if (stats != null) Timer(3, 20000);
-            m.Start();
+            m.Start(); d.Cast.Start();
             if (test == "panel") { TogglePanel(); panel.Pinned = true; }
             else if (test == "mini") { mini = new MiniWin(d); See2(true); mini.Pop(new Win.PT(700, 600)); }
             else if (test != null && test.StartsWith("cycle")) Timer(4, test == "cycle" ? 700 : 250);
@@ -257,7 +263,7 @@ namespace LagWatch
             if (e == 0x200) Hover();
             else if (e == 0x202) { HideMini(); TogglePanel(); }
             else if (e == 0x205) { HideMini(); Menu(); }
-            else if (e == 0x405) OpenMain(MainView.Sum);
+            else if (e == 0x405) { OpenMain(streamNote ? MainView.Stream : MainView.Sum); streamNote = false; } // 방송 알림을 누르면 방송 화면
         }
         void Tick(int id)
         {
@@ -272,6 +278,7 @@ namespace LagWatch
         void See() { m.Visible = (main != null && main.Visible) || (panel != null && panel.Visible) || (mini != null && mini.Visible); if (m.Visible) m.Wake(); }
 
         /// <summary>전체 화면을 쓰는 중이면 끝날 때까지 알림을 미룬다.</summary>
+        bool streamNote;
         void Deliver()
         {
             if (pending.Count == 0 || m.Game != null) return;

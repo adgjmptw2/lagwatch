@@ -14,6 +14,7 @@ namespace LagWatch
 
         static int Main(string[] args)
         {
+            if (args.Length > 1 && args[0] == "--rejudge") { Console.OutputEncoding = new System.Text.UTF8Encoding(false); for (int i = 1; i < args.Length; i++) { var sd = Broadcast.Load(args[i]); Console.WriteLine(System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(args[i])) + "	" + (sd == null ? "-" : sd.Copy().Count + "	" + sd.Causes() + "	" + sd.Main())); } return 0; } // 기록 파일을 지금 규칙으로 다시 판정
             if (args.Length > 1 && args[0] == "--sleep") { System.Threading.Thread.Sleep(int.Parse(args[1]) * 1000); return 0; }
             if (args.Length > 1 && args[0] == "--spin") { var w = System.Diagnostics.Stopwatch.StartNew(); for (int i = 0; i < 3; i++) new System.Threading.Thread(() => { while (w.Elapsed.TotalSeconds < int.Parse(args[1])) { } }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal }.Start(); System.Threading.Thread.Sleep(int.Parse(args[1]) * 1000); return 0; }
             Console.OutputEncoding = new System.Text.UTF8Encoding(false); Trace.Tag = ".test";

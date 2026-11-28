@@ -32,6 +32,8 @@ namespace LagWatch
         public readonly Rounds Rounds;
         public readonly Blame Blame = new Blame();
         public readonly Hits Hits;
+        /// <summary>OBS 방송 기록. Start()를 부른 곳(트레이 본체)에서만 돈다.</summary>
+        public readonly Broadcast Cast;
         public volatile List<Cause> Causes = new List<Cause>();
         public volatile List<Growth> Growing = new List<Growth>();
         public volatile List<Bg> Background = new List<Bg>();
@@ -59,6 +61,7 @@ namespace LagWatch
             M = m;
             Fix = new Fixer(m, dir == null ? null : System.IO.Path.Combine(dir, "applied.tsv"));
             Boost = new Boost(m, dir); Rounds = new Rounds(Frames, dir, Boost.Sig) { Settle = (g, from) => { JudgeHits(M.Now, true); return Hits.Between(g, from, DateTime.Now); } }; Hits = new Hits(dir);
+            Cast = new Broadcast(m, dir == null ? null : System.IO.Path.Combine(dir, "stream"), () => FramesOk ? Fps : double.NaN);
             if (dir != null) Temp.LogFile = System.IO.Path.Combine(dir, "clean.tsv");
             foreach (var c in Temp.Cats) { if (m.Set.TempOff.Contains(c.Key)) c.On = false; if (m.Set.TempOn.Contains(c.Key)) c.On = true; }
         }
@@ -515,7 +518,7 @@ namespace LagWatch
 
         public void Dispose()
         {
-            Rounds.Close(M.Now); Blame.Close(); Frames.Close(); Kern.Close(); Fix.RestoreAll();
+            Cast.Dispose(); Rounds.Close(M.Now); Blame.Close(); Frames.Close(); Kern.Close(); Fix.RestoreAll();
         }
     }
 }

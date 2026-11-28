@@ -7,8 +7,8 @@ namespace LagWatch
     /// <summary>큰 창: 지금 · 요약 · 시간별 · 프로그램 · 게임 · 청소</summary>
     internal sealed partial class MainView : Surface
     {
-        public const int Now = 0, Sum = 1, Time = 2, Prog = 3, Game = 4, Clean = 5;
-        public static readonly string[] Tabs = { Tx("지금", "Now"), Tx("요약", "Summary"), Tx("시간별", "History"), Tx("프로그램", "Apps"), Tx("게임", "Games"), Tx("청소", "Clean") };
+        public const int Now = 0, Sum = 1, Time = 2, Prog = 3, Game = 4, Stream = 5, Clean = 6;
+        public static readonly string[] Tabs = { Tx("지금", "Now"), Tx("요약", "Summary"), Tx("시간별", "History"), Tx("프로그램", "Apps"), Tx("게임", "Games"), Tx("방송", "Stream"), Tx("청소", "Clean") };
         public int Page;
         public bool Cores;
         public string Open;                 // 오른쪽에 연 프로그램
@@ -33,7 +33,7 @@ namespace LagWatch
         {
             if (id.StartsWith("open:")) { Open = id.Substring(5); Redraw(); return; }
             if (id == "page:round") { Go(Game); lock (D.Rounds.Items) look = D.Rounds.Items.Count > 0 ? D.Rounds.Items[D.Rounds.Items.Count - 1] : null; return; }
-            if (id.StartsWith("page:")) { Go(id == "page:clean" ? Clean : id == "page:game" ? Game : Sum); return; }
+            if (id.StartsWith("page:")) { Go(id == "page:clean" ? Clean : id == "page:game" ? Game : id == "page:stream" ? Stream : Sum); return; }
             if (id.StartsWith("restart:") || id.StartsWith("end:") || id.StartsWith("after:"))
             {
                 string key = id.Substring(id.IndexOf(':') + 1); Grp g; S.ByKey.TryGetValue(key, out g);
@@ -62,6 +62,7 @@ namespace LagWatch
                 case Time: PaintTime(w, h); break;
                 case Prog: PaintProg(w, h); break;
                 case Game: PaintGame(w, h); break;
+                case Stream: PaintStream(w, h); break;
                 default: PaintClean(w, h); break;
             }
             Head(w);
@@ -77,6 +78,7 @@ namespace LagWatch
             float x = 40;
             for (int i = 0; i < Tabs.Length; i++)
             {
+                if (i == Stream && Page != Stream && !StreamTab) continue; // OBS를 쓰는 PC에서만
                 string id = "tab" + i; int n = i;
                 var st = F.Sans(18, Page == i ? 800 : 700);
                 float tw = C.Measure(Tabs[i], st);

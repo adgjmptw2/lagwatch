@@ -14,7 +14,7 @@ namespace LagWatch
 
         static void More()
         {
-            FrameTest(); KernTest(); RuleText(); SeriesTest(); GroupTest(); TempTest(); TrimTest(); FixReal(); PartsTest(); UiTest(); TimeTest(); UsageTest(); FailTest(); GameTests();
+            FrameTest(); KernTest(); RuleText(); SeriesTest(); GroupTest(); TempTest(); TrimTest(); FixReal(); PartsTest(); UiTest(); TimeTest(); UsageTest(); FailTest(); GameTests(); StreamTests();
             try { Directory.Delete(Tmp, true); } catch (Exception) { }
         }
 
